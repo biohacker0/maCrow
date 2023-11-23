@@ -1,17 +1,15 @@
+#The version that only has basic framework with move,scroll and single click -stable version
+
 # import time
 # import json
 # import argparse
 # import mouse
 # from pynput import mouse as pynput_mouse
 
-# DOUBLE_CLICK_THRESHOLD = 0.3  # Define a threshold for double-click action (in seconds)
-
 # def record(filename):
 #     print("Recording started. Move the mouse around and perform actions. Press Ctrl + C to stop.")
 #     actions = []
-#     previous_y = mouse.get_position()[1]  # Initialize previous_y
 #     previous_time = time.time()  # Initialize previous_time
-#     previous_left_click_time = None  # Store the time of the previous left click
     
 #     # Initialize the mouse listener for scroll events
 #     def on_scroll(x, y, dx, dy):
@@ -41,14 +39,6 @@
 #                     "scroll": 0  # Initialize scroll as 0
 #                 })
 
-#                 if left_click:
-#                     if previous_left_click_time is not None:
-#                         time_since_last_click = current_time - previous_left_click_time
-#                         if time_since_last_click <= DOUBLE_CLICK_THRESHOLD:
-#                             # If within threshold, mark as a double-click
-#                             actions[-1]["double_click"] = True
-#                     previous_left_click_time = current_time
-
 #                 previous_time = current_time
 
 #                 time.sleep(0.05)  # Adjusted sleep time for smoother recordings
@@ -59,7 +49,6 @@
 #             with open(filename, 'w') as file:
 #                 json.dump(actions, file)
 
-
 # def replay(filename):
 #     with open(filename, 'r') as file:
 #         actions = json.load(file)
@@ -68,16 +57,12 @@
 #             action = actions[i]
 #             time.sleep(action["time_diff"])  # Use the recorded time differences
 #             mouse.move(action["position"][0], action["position"][1], absolute=True)
-#             if action.get("double_click"):
+#             if action["left_click"]:
 #                 mouse.click("left")
-#                 # mouse.click("left")
-#             else:
-#                 if action["left_click"]:
-#                     mouse.click("left")
-#                 if action["right_click"]:
-#                     mouse.click("right")
-#                 if action["scroll"] != 0:
-#                     mouse.wheel(delta=action["scroll"])
+#             if action["right_click"]:
+#                 mouse.click("right")
+#             if action["scroll"] != 0:
+#                 mouse.wheel(delta=action["scroll"])
 #         print("Replay complete.")
 
 # if __name__ == '__main__':
@@ -93,70 +78,81 @@
 
 
 
+#This one is new one, can move, scroll, click, hold and drag , we are using this one from now on
 
 import time
 import json
 import argparse
-import mouse
 from pynput import mouse as pynput_mouse
+import pyautogui
+import mouse
 
 def record(filename):
     print("Recording started. Move the mouse around and perform actions. Press Ctrl + C to stop.")
     actions = []
     previous_time = time.time()  # Initialize previous_time
-    
-    # Initialize the mouse listener for scroll events
-    def on_scroll(x, y, dx, dy):
+
+    # Initialize the mouse listener for scroll and press events
+    def on_move(x, y):
         actions.append({
-            "time_diff": time_diff,
-            "position": mouse.get_position(),
-            "left_click": mouse.is_pressed(button="left"),
-            "right_click": mouse.is_pressed(button="right"),
-            "scroll": dy  # Using dy to capture the scroll details
+            "action": "move",
+            "position": (x, y),
+            "time_diff": time_diff
         })
 
-    with pynput_mouse.Listener(on_scroll=on_scroll) as listener:
-        try:
-            while True:
-                current_time = time.time()
-                time_diff = current_time - previous_time
+    def on_click(x, y, button, pressed):
+        actions.append({
+            "action": "press" if pressed else "release",
+            "button": str(button),
+            "position": (x, y),
+            "time_diff": time_diff
+        })
 
-                position = mouse.get_position()
-                left_click = mouse.is_pressed(button="left")
-                right_click = mouse.is_pressed(button="right")
+    def on_scroll(x, y, dx, dy):
+        actions.append({
+            "action": "scroll",
+            "position": (x, y),
+            "scroll": dy,
+            "time_diff": time_diff
+        })
 
-                actions.append({
-                    "time_diff": time_diff,
-                    "position": position,
-                    "left_click": left_click,
-                    "right_click": right_click,
-                    "scroll": 0  # Initialize scroll as 0
-                })
+    listener = pynput_mouse.Listener(on_move=on_move, on_click=on_click, on_scroll=on_scroll)
+    listener.start()
 
-                previous_time = current_time
+    try:
+        while True:
+            current_time = time.time()
+            time_diff = current_time - previous_time
+            time.sleep(0.05)  # Adjusted sleep time for smoother recordings
+    except KeyboardInterrupt:
+        print("Recording stopped.")
+        listener.stop()
+        with open(filename, 'w') as file:
+            json.dump(actions, file)
 
-                time.sleep(0.05)  # Adjusted sleep time for smoother recordings
-
-        except KeyboardInterrupt:
-            print("Recording stopped.")
-            listener.stop()  # Stop the listener
-            with open(filename, 'w') as file:
-                json.dump(actions, file)
-
+# Function to replay mouse actions
 def replay(filename):
     with open(filename, 'r') as file:
         actions = json.load(file)
         print("Replaying mouse movements...")
         for i in range(len(actions)):
             action = actions[i]
-            time.sleep(action["time_diff"])  # Use the recorded time differences
-            mouse.move(action["position"][0], action["position"][1], absolute=True)
-            if action["left_click"]:
-                mouse.click("left")
-            if action["right_click"]:
-                mouse.click("right")
-            if action["scroll"] != 0:
+            if action["action"] == "move":
+                time.sleep(0.01)  # Use a small delay for smoother movements
+                pyautogui.moveTo(action["position"][0], action["position"][1], duration=0.1)
+            elif action["action"] == "press":
+                if action["button"] == "Button.left":
+                    pyautogui.mouseDown(button='left')
+                    print("holding mode")
+            elif action["action"] == "release":
+                if action["button"] == "Button.left":
+                    pyautogui.mouseUp(button='left')
+                    print("normal click")
+            elif action["action"] == "scroll":
+                # Adjust the sleep time based on the duration of the scroll action
+                time.sleep(0.01)
                 mouse.wheel(delta=action["scroll"])
+
         print("Replay complete.")
 
 if __name__ == '__main__':
@@ -169,9 +165,3 @@ if __name__ == '__main__':
         record(args.file)
     elif args.command == 'replay':
         replay(args.file)
-
-
-
-
-
-
