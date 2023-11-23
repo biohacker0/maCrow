@@ -1,10 +1,17 @@
-
 import time
 import json
 import argparse
 from pynput import mouse as pynput_mouse
 import pyautogui
 import mouse
+import ctypes
+
+# Get screen resolution
+screen_width, screen_height = pyautogui.size()
+
+# Function to set the cursor position using the Windows API
+def set_cursor_pos(x, y):
+    ctypes.windll.user32.SetCursorPos(x, y)
 
 def record(filename):
     print("Recording started. Move the mouse around and perform actions. Press Ctrl + C to stop.")
@@ -13,27 +20,30 @@ def record(filename):
 
     # Initialize the mouse listener for scroll and press events
     def on_move(x, y):
-        actions.append({
-            "action": "move",
-            "position": (x, y),
-            "time_diff": time_diff
-        })
+        if 0 <= x < screen_width and 0 <= y < screen_height:
+            actions.append({
+                "action": "move",
+                "position": (x, y),
+                "time_diff": time_diff
+            })
 
     def on_click(x, y, button, pressed):
-        actions.append({
-            "action": "press" if pressed else "release",
-            "button": str(button),
-            "position": (x, y),
-            "time_diff": time_diff
-        })
+        if 0 <= x < screen_width and 0 <= y < screen_height:
+            actions.append({
+                "action": "press" if pressed else "release",
+                "button": str(button),
+                "position": (x, y),
+                "time_diff": time_diff
+            })
 
     def on_scroll(x, y, dx, dy):
-        actions.append({
-            "action": "scroll",
-            "position": (x, y),
-            "scroll": dy,
-            "time_diff": time_diff
-        })
+        if 0 <= x < screen_width and 0 <= y < screen_height:
+            actions.append({
+                "action": "scroll",
+                "position": (x, y),
+                "scroll": dy,
+                "time_diff": time_diff
+            })
 
     listener = pynput_mouse.Listener(on_move=on_move, on_click=on_click, on_scroll=on_scroll)
     listener.start()
@@ -42,7 +52,18 @@ def record(filename):
         while True:
             current_time = time.time()
             time_diff = current_time - previous_time
+
+            # Get the current mouse position
+            x, y = mouse.get_position()
+
+            # Keep the mouse within the screen boundaries
+            x = max(0, min(x, screen_width - 1))
+            y = max(0, min(y, screen_height - 1))
+            
+            set_cursor_pos(x, y)
+
             time.sleep(0.05)  # Adjusted sleep time for smoother recordings
+
     except KeyboardInterrupt:
         print("Recording stopped.")
         listener.stop()
@@ -54,25 +75,52 @@ def replay(filename):
     with open(filename, 'r') as file:
         actions = json.load(file)
         print("Replaying mouse movements...")
+
+        # Variables for double click detection
+        last_click_time = 0
+        double_click_threshold = 0.3  # Adjust this threshold as needed for your scenario
+
         for i in range(len(actions)):
             action = actions[i]
             if action["action"] == "move":
-                time.sleep(0.01)  # Use a small delay for smoother movements
-                pyautogui.moveTo(action["position"][0], action["position"][1], duration=0.1)
+                # Use mouse.move for smooth movement at normal speed
+                mouse.move(action["position"][0], action["position"][1], absolute=True, duration=0.01)
             elif action["action"] == "press":
-                if action["button"] == "Button.left":
-                    pyautogui.mouseDown(button='left')
-                    print("holding mode")
+                current_time = action["time_diff"]
+
+                # Check for double click
+                if current_time - last_click_time <= double_click_threshold:
+                    if action["button"] == "Button.left":
+                        pyautogui.mouseDown(button='left')
+                        print("double click")
+                    elif action["button"] == "Button.right":
+                        pyautogui.mouseDown(button='right')
+                        print("double right click")
+                else:
+                    if action["button"] == "Button.left":
+                        pyautogui.mouseDown(button='left')
+                        print("holding mode")
+                    elif action["button"] == "Button.right":
+                        pyautogui.mouseDown(button='right')
+                        print("holding right mode")
+
+                last_click_time = current_time
+
             elif action["action"] == "release":
                 if action["button"] == "Button.left":
                     pyautogui.mouseUp(button='left')
                     print("normal click")
+                elif action["button"] == "Button.right":
+                    pyautogui.mouseUp(button='right')
+                    print("normal right click")
+
             elif action["action"] == "scroll":
                 # Adjust the sleep time based on the duration of the scroll action
                 time.sleep(0.01)
                 mouse.wheel(delta=action["scroll"])
 
         print("Replay complete.")
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Mouse Recorder/Replayer')
