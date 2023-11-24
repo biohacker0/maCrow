@@ -29,26 +29,31 @@ def countdown_animation(root):
         root.update()
         time.sleep(1)
 
-    countdown_label.config(text="Recording has started OwO :3 !")
+    if root.mode == "record":
+        countdown_label.config(text="Recording has started OwO :3 !")
+    elif root.mode == "replay":
+        countdown_label.config(text="Replay will play in :3 !")
+
     root.update()
     time.sleep(1)
 
     canvas.destroy()
     
-def count_down_animation_config():
-    print("Recording will start in:")
+def count_down_animation_config(mode):
+    print(f"{mode.capitalize()} will start in:")
     root = tk.Tk()
     root.attributes("-transparentcolor", "white")
     root.overrideredirect(1)
     root.geometry(f"{screen_width}x{screen_height}+0+0")
     root.attributes('-topmost', 1)
+    root.mode = mode  # Set the mode attribute
 
     countdown_animation(root)
     root.withdraw()  # Hide the root window
     
 
 def record(filename):
-    count_down_animation_config()
+    count_down_animation_config("record")
     print("Recording started. Move the mouse around and perform actions. Press Ctrl + C to stop.")
     actions = []
     previous_time = time.time()  # Initialize previous_time
@@ -107,6 +112,7 @@ def record(filename):
 
 # Function to replay mouse actions
 def replay(filename):
+    count_down_animation_config("replay")
     with open(filename, 'r') as file:
         actions = json.load(file)
         print("Replaying mouse movements...")
@@ -119,7 +125,7 @@ def replay(filename):
             action = actions[i]
             if action["action"] == "move":
                 # Use mouse.move for smooth movement at normal speed
-                mouse.move(action["position"][0], action["position"][1], absolute=True, duration=0.01)
+                mouse.move(action["position"][0], action["position"][1], absolute=True, duration=0.00001)
             elif action["action"] == "press":
                 current_time = action["time_diff"]
 
