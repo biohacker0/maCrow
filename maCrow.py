@@ -5,6 +5,9 @@ from pynput import mouse as pynput_mouse
 import pyautogui
 import mouse
 import ctypes
+import tkinter as tk
+from tkinter import Canvas, Label
+
 
 # Get screen resolution
 screen_width, screen_height = pyautogui.size()
@@ -12,8 +15,40 @@ screen_width, screen_height = pyautogui.size()
 # Function to set the cursor position using the Windows API
 def set_cursor_pos(x, y):
     ctypes.windll.user32.SetCursorPos(x, y)
+    
+# Function to display a countdown animation
+def countdown_animation(root):
+    canvas = Canvas(root, width=screen_width, height=screen_height, bg="white", highlightthickness=0)
+    canvas.pack()
+
+    countdown_label = Label(canvas, text="", font=("Helvetica", 50))
+    countdown_label.place(relx=0.5, rely=0.5, anchor="center")
+
+    for i in range(3, 0, -1):
+        countdown_label.config(text=str(i))
+        root.update()
+        time.sleep(1)
+
+    countdown_label.config(text="Recording has started OwO :3 !")
+    root.update()
+    time.sleep(1)
+
+    canvas.destroy()
+    
+def count_down_animation_config():
+    print("Recording will start in:")
+    root = tk.Tk()
+    root.attributes("-transparentcolor", "white")
+    root.overrideredirect(1)
+    root.geometry(f"{screen_width}x{screen_height}+0+0")
+    root.attributes('-topmost', 1)
+
+    countdown_animation(root)
+    root.withdraw()  # Hide the root window
+    
 
 def record(filename):
+    count_down_animation_config()
     print("Recording started. Move the mouse around and perform actions. Press Ctrl + C to stop.")
     actions = []
     previous_time = time.time()  # Initialize previous_time
