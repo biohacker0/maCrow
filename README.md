@@ -1,8 +1,6 @@
 # maCrow
 A macro recorder for windows automation
 
-Here is a sample README file for the **Mouse Recorder/Replayer** Python script:
-
 # Mouse Recorder/Replayer
 
 This Python script allows you to record and replay mouse movements and actions.
