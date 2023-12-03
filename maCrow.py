@@ -4,6 +4,7 @@ import argparse
 from pynput import mouse as pynput_mouse
 import pyautogui
 import mouse
+import keyboard
 import ctypes
 import tkinter as tk
 from tkinter import Canvas, Label
@@ -11,6 +12,7 @@ from tkinter import Canvas, Label
 
 # Get screen resolution
 screen_width, screen_height = pyautogui.size()
+
 
 # Function to set the cursor position using the Windows API
 def set_cursor_pos(x, y):
@@ -24,20 +26,21 @@ def countdown_animation(root):
     countdown_label = Label(canvas, text="", font=("Helvetica", 50))
     countdown_label.place(relx=0.5, rely=0.5, anchor="center")
 
-    for i in range(3, 0, -1):
-        countdown_label.config(text=str(i))
-        root.update()
-        time.sleep(1)
+    # for i in range(3, 0, -1):
+    #     countdown_label.config(text=str(i))
+    #     root.update()
+    #     time.sleep(1)
 
     if root.mode == "record":
-        countdown_label.config(text="Recording has started OwO :3 !")
+        countdown_label.config(text="Recording has started  :3 ")
     elif root.mode == "replay":
-        countdown_label.config(text="Replay will play in :3 !")
+        countdown_label.config(text="Replay has started :3 ")
 
     root.update()
     time.sleep(1)
 
     canvas.destroy()
+    
     
 def count_down_animation_config(mode):
     print(f"{mode.capitalize()} will start in:")
@@ -50,11 +53,11 @@ def count_down_animation_config(mode):
 
     countdown_animation(root)
     root.withdraw()  # Hide the root window
-    
+
 
 def record(filename):
     count_down_animation_config("record")
-    print("Recording started. Move the mouse around and perform actions. Press Ctrl + C to stop.")
+    print("Recording started. Move the mouse around, perform actions, and type on the keyboard. Press Ctrl + C to stop.")
     actions = []
     previous_time = time.time()  # Initialize previous_time
 
@@ -85,8 +88,18 @@ def record(filename):
                 "time_diff": time_diff
             })
 
+    def on_key_event(event):
+        actions.append({
+            "action": "key",
+            "key": event.name,
+            "event_type": event.event_type,
+            "time_diff": time_diff
+        })
+
     listener = pynput_mouse.Listener(on_move=on_move, on_click=on_click, on_scroll=on_scroll)
     listener.start()
+
+    keyboard.hook(on_key_event)
 
     try:
         while True:
@@ -99,7 +112,7 @@ def record(filename):
             # Keep the mouse within the screen boundaries
             x = max(0, min(x, screen_width - 1))
             y = max(0, min(y, screen_height - 1))
-            
+
             set_cursor_pos(x, y)
 
             time.sleep(0.05)  # Adjusted sleep time for smoother recordings
@@ -107,15 +120,18 @@ def record(filename):
     except KeyboardInterrupt:
         print("Recording stopped.")
         listener.stop()
+        keyboard.unhook_all()
+
         with open(filename, 'w') as file:
             json.dump(actions, file)
 
-# Function to replay mouse actions
-def replay(filename):
+
+# Function to replay mouse and keyboard actions
+def replay(filename, key_delay=0.1):
     count_down_animation_config("replay")
     with open(filename, 'r') as file:
         actions = json.load(file)
-        print("Replaying mouse movements...")
+        print("Replaying mouse movements and keyboard inputs...")
 
         # Variables for double click detection
         last_click_time = 0
@@ -160,13 +176,25 @@ def replay(filename):
                 time.sleep(0.01)
                 mouse.wheel(delta=action["scroll"])
 
+            elif action["action"] == "key":
+                if action["event_type"] == "down":
+                    keyboard.press(action["key"])
+                    print(f"Key pressed: {action['key']}")
+                elif action["event_type"] == "up":
+                    keyboard.release(action["key"])
+                    print(f"Key released: {action['key']}")
+
+                # Introduce a delay between key presses
+                time.sleep(key_delay)
+
         print("Replay complete.")
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Mouse Recorder/Replayer')
+    parser = argparse.ArgumentParser(description='Mouse and Keyboard Recorder/Replayer')
     parser.add_argument('command', choices=['record', 'replay'], help='Choose command: record or replay')
-    parser.add_argument('--file', default='mouse_actions.json', help='File to save mouse actions (default: mouse_actions.json)')
+    parser.add_argument('--file', default='mouse_keyboard_actions.json',
+                        help='File to save mouse and keyboard actions (default: mouse_keyboard_actions.json)')
     args = parser.parse_args()
 
     if args.command == 'record':
