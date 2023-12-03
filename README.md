@@ -65,7 +65,7 @@ python maCrow.py replay --file mouse_actions.json
 
 ### Additional Notes
 
-Adjust the key_delay parameter in the replay function to control the delay between key presses during replay.
+> **Note:** Adjust the `double_click_threshold` carefully to suit your specific use case.
 Customize the double_click_threshold in the replay function to adjust the threshold for detecting double clicks.
 
 Press `Ctrl + C` to stop the recording.
